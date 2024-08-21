@@ -1,0 +1,61 @@
+import yfinance as yf
+from textblob import TextBlob
+import datetime as dt
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Define the sentiment analysis function
+def analyze_sentiment(text):
+    analysis = TextBlob(text)
+    return analysis.sentiment.polarity
+
+# Sample news headlines
+news_headlines = [
+    "Company X's earnings surpass expectations with 30% growth.",
+    "Company Y faces legal challenges over patent infringement.",
+    "Global markets rally as trade tensions ease.",
+    "Company Z reports disappointing sales in Q2."
+]
+
+# Analyze sentiment for each headline
+sentiments = [analyze_sentiment(headline) for headline in news_headlines]
+
+# Create a DataFrame to display results
+sentiment_df = pd.DataFrame({'Headline': news_headlines, 'Sentiment': sentiments})
+print(sentiment_df)
+
+# Fetch historical data for a stock (e.g., Apple)
+stock = yf.download("AAPL", start="2023-01-01", end="2023-12-31")
+stock['20_SMA'] = stock['Close'].rolling(window=20).mean()
+stock['50_SMA'] = stock['Close'].rolling(window=50).mean()
+
+# Implement a simple moving average crossover strategy
+stock['Signal'] = 0
+stock['Signal'][20:] = np.where(stock['20_SMA'][20:] > stock['50_SMA'][20:], 1, -1)
+
+# Adjust trading signals based on sentiment
+adjusted_signals = []
+for signal in stock['Signal']:
+    if len(sentiments) > 0:
+        avg_sentiment = sum(sentiments) / len(sentiments)
+        if avg_sentiment > 0.2:
+            adjusted_signals.append(signal + 1)
+        elif avg_sentiment < -0.2:
+            adjusted_signals.append(signal - 1)
+        else:
+            adjusted_signals.append(signal)
+    else:
+        adjusted_signals.append(signal)
+
+stock['Adjusted_Signal'] = adjusted_signals
+
+# Visualize the adjusted signals
+plt.figure(figsize=(14, 7))
+plt.plot(stock['Close'], label='Stock Price')
+plt.plot(stock['20_SMA'], label='20-day SMA')
+plt.plot(stock['50_SMA'], label='50-day SMA')
+plt.plot(stock.index, stock['Adjusted_Signal'], label='Adjusted Signal', marker='o')
+plt.title('Stock Price and Adjusted Trading Signals')
+plt.legend()
+plt.show()
